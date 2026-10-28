@@ -518,10 +518,12 @@
             </control>
             <block>
               // Configure
-              WriteAccessAP(ETR_0_ADDRESS + 0x028, 0x00000000);                                // Set Circular Buffer mode
-              WriteAccessAP(ETR_0_ADDRESS + 0x034, 0x00000000);                                // Watermark: Set threshold vacancy to 0 to use full buffer
+              WriteAccessAP(ETR_0_ADDRESS + 0x028, 0x00000000);               // Set Circular Buffer mode
+              WriteAccessAP(ETR_0_ADDRESS + 0x034, 0x00000000);               // Watermark: Set threshold vacancy to 0 to use full buffer
               ffcrValue  = ReadAccessAP(ETR_0_ADDRESS + 0x304);
-              ffcrValue |= 0x00000003;                                                                   // FFCR: Enable Formatter and Trigger Insertion
+              ffcrValue |= 0x00000003;                                        // FFCR: Enable Formatter and Trigger Insertion
+              ffcrValue |= 0x00000400;                                        // FFCR: Insert trigger marker on flush completion (TrigFl)
+              ffcrValue |= 0x00001020;                                        // Flush and Stop Formatter on Trigger (FOnTrig + StopFl)
               WriteAccessAP(ETR_0_ADDRESS + 0x304, ffcrValue);
               WriteAccessAP(ETR_0_ADDRESS + 0x01C, ETR_0_TRIGGER_COUNT);      // TRG: Number of words to capture after trigger
               WriteAccessAP(ETR_0_ADDRESS + 0x308, ETR_0_SYNCCNT);            // Set PSCR
@@ -549,9 +551,11 @@
 
               Message(0, "Begin CS_ETR_0_Capture_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
 
-              __apid = ETR_0_AP;                                                           // Set AP
+              __apid = ETR_0_AP;                                              // Set AP
               ffcrValue  = ReadAccessAP(ETR_0_ADDRESS + 0x304);
-              ffcrValue |= 0x00000003;                                                                    // FFCR: Enable Formatter and Trigger Insertion
+              ffcrValue |= 0x00000003;                                        // FFCR: Enable Formatter and Trigger Insertion
+              ffcrValue |= 0x00000400;                                        // FFCR: Insert trigger marker on flush completion (TrigFl)
+              ffcrValue |= 0x00001020;                                        // Flush and Stop Formatter on Trigger (FOnTrig + StopFl)
               WriteAccessAP(ETR_0_ADDRESS + 0x304, ffcrValue);
               WriteAccessAP(ETR_0_ADDRESS + 0x01C, ETR_0_TRIGGER_COUNT);      // TRG: Number of words to capture after trigger
               WriteAccessAP(ETR_0_ADDRESS + 0x308, ETR_0_SYNCCNT);            // Set PSCR
@@ -584,7 +588,7 @@
             <block>
               // Flush the ETR formatter and stop capture.
               ffcrValue = ReadAccessAP(ETR_0_ADDRESS + 0x304);
-              ffcrValue &amp;= ~(0x00001040);    // Clear StopOnFlush and FlushOnManual
+              ffcrValue &amp;= ~(0x00001460);    // Clear FOnTrig, StopFl, FOnMan and TrigFl; do not insert a trigger packet on manual flush
               ffcrValue |= 0x00001000;           // Stop after the manual flush completes
               WriteAccessAP(ETR_0_ADDRESS + 0x304, ffcrValue);
               ffcrValue |= 0x00000040;           // Trigger manual flush
@@ -1431,10 +1435,12 @@
             </control>
             <block>
               // Configure
-              WriteAccessAP(ETR_0_ADDRESS + 0x028, 0x00000000);                                // Set Circular Buffer mode
-              WriteAccessAP(ETR_0_ADDRESS + 0x034, 0x00000000);                                // Watermark: Set threshold vacancy to 0 to use full buffer
+              WriteAccessAP(ETR_0_ADDRESS + 0x028, 0x00000000);               // Set Circular Buffer mode
+              WriteAccessAP(ETR_0_ADDRESS + 0x034, 0x00000000);               // Watermark: Set threshold vacancy to 0 to use full buffer
               ffcrValue  = ReadAccessAP(ETR_0_ADDRESS + 0x304);
-              ffcrValue |= 0x00000003;                                                                   // FFCR: Enable Formatter and Trigger Insertion
+              ffcrValue |= 0x00000003;                                        // FFCR: Enable Formatter and Trigger Insertion
+              ffcrValue |= 0x00000400;                                        // FFCR: Insert trigger marker on flush completion (TrigFl)
+              ffcrValue |= 0x00001020;                                        // Flush and Stop Formatter on Trigger (FOnTrig + StopFl)
               WriteAccessAP(ETR_0_ADDRESS + 0x304, ffcrValue);
               WriteAccessAP(ETR_0_ADDRESS + 0x01C, ETR_0_TRIGGER_COUNT);      // TRG: Number of words to capture after trigger
               WriteAccessAP(ETR_0_ADDRESS + 0x308, ETR_0_SYNCCNT);            // Set PSCR
@@ -1462,9 +1468,11 @@
 
               Message(0, "Begin CS_ETR_0_Capture_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
 
-              __apid = ETR_0_AP;                                                           // Set AP
+              __apid = ETR_0_AP;                                              // Set AP
               ffcrValue  = ReadAccessAP(ETR_0_ADDRESS + 0x304);
-              ffcrValue |= 0x00000003;                                                                    // FFCR: Enable Formatter and Trigger Insertion
+              ffcrValue |= 0x00000003;                                        // FFCR: Enable Formatter and Trigger Insertion
+              ffcrValue |= 0x00000400;                                        // FFCR: Insert trigger marker on flush completion (TrigFl)
+              ffcrValue |= 0x00001020;                                        // Flush and Stop Formatter on Trigger (FOnTrig + StopFl)
               WriteAccessAP(ETR_0_ADDRESS + 0x304, ffcrValue);
               WriteAccessAP(ETR_0_ADDRESS + 0x01C, ETR_0_TRIGGER_COUNT);      // TRG: Number of words to capture after trigger
               WriteAccessAP(ETR_0_ADDRESS + 0x308, ETR_0_SYNCCNT);            // Set PSCR
@@ -1497,7 +1505,7 @@
             <block>
               // Flush the ETR formatter and stop capture.
               ffcrValue = ReadAccessAP(ETR_0_ADDRESS + 0x304);
-              ffcrValue &amp;= ~(0x00001040);    // Clear StopOnFlush and FlushOnManual
+              ffcrValue &amp;= ~(0x00001460);    // Clear FOnTrig, StopFl, FOnMan and TrigFl; do not insert a trigger packet on manual flush
               ffcrValue |= 0x00001000;           // Stop after the manual flush completes
               WriteAccessAP(ETR_0_ADDRESS + 0x304, ffcrValue);
               ffcrValue |= 0x00000040;           // Trigger manual flush
