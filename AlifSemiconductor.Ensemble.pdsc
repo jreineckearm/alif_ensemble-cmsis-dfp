@@ -8,7 +8,7 @@
   <license>License.txt</license>
 
   <releases>
-    <release version="2.3.0-traceproto">
+    <release version="2.3.0-traceproto2">
        - Trace prototype for CMSIS Debugger v1.9.1 and later
     </release>
     <release version="2.2.1"  tag="v2.2.1" url="https://github.com/alifsemi/alif_ensemble-cmsis-dfp/releases/download/v2.2.1/AlifSemiconductor.Ensemble.2.2.1.pack" date="2026-08-26">
