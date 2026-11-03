@@ -8,6 +8,9 @@
   <license>License.txt</license>
 
   <releases>
+    <release version="2.3.0-traceproto3">
+       - ETR + CATU ordering and sticky bits
+    </release>
     <release version="2.3.0-traceproto2">
        - Trace prototype for CMSIS Debugger v1.9.1 and later
     </release>
@@ -304,12 +307,6 @@
                 Sequence("E8_ValidateTraceConfiguration");
               </block>
             </control>
-            <control if="bufferTrace">
-              <block>
-                // Configure the ETR memory path before enabling the trace sink.
-                Sequence("CS_CATU_0_Configure");
-              </block>
-            </control>
             <!-- CMSIS-PACK-TRACE: ADD-DEVICE-SPECIFIC-HERE END -->
             <control if="bufferTrace">
               <block>
@@ -328,12 +325,6 @@
             </block>
             <!-- CMSIS-PACK-TRACE: ADD-DEVICE-SPECIFIC-HERE BEGIN -->
             <!-- Add verified device-specific capture work here, including migrated legacy setup when applicable. -->
-            <control if="bufferTrace">
-              <block>
-                // Re-enable the ETR memory path before the sink starts the next capture.
-                Sequence("CS_CATU_0_Capture");
-              </block>
-            </control>
             <!-- CMSIS-PACK-TRACE: ADD-DEVICE-SPECIFIC-HERE END -->
             <control if="bufferTrace">
               <block>
@@ -378,14 +369,13 @@
               __var syncTrace = __traceout &amp; 0x2;
               __var bufferTrace = __traceout &amp; 0x4;
             </block>
-            <!-- CMSIS-PACK-TRACE: ADD-DEVICE-SPECIFIC-HERE BEGIN -->
-            <!-- Add verified device-specific shutdown work here, including migrated legacy setup when applicable. -->
             <control if="bufferTrace">
               <block>
-                // The debugger has already flushed and read ETR; now quiesce its memory path.
-                Sequence("CS_CATU_0_Flush");
+                Sequence("DoTraceStop_Buffer");
               </block>
             </control>
+            <!-- CMSIS-PACK-TRACE: ADD-DEVICE-SPECIFIC-HERE BEGIN -->
+            <!-- Add verified device-specific shutdown work here, including migrated legacy setup when applicable. -->
             <!-- CMSIS-PACK-TRACE: ADD-DEVICE-SPECIFIC-HERE END -->
           </sequence>
           <sequence name="DoTraceStart_Buffer">
@@ -397,6 +387,7 @@
             <block>
               Sequence("CS_FUNNEL_0_Configure");
               Sequence("CS_REPLICATOR_0_Configure");
+              Sequence("CS_CATU_0_Configure");
               Sequence("CS_ETR_0_Configure_CircularBuffer");
             </block>
           </sequence>
@@ -407,6 +398,7 @@
               __var bufferTrace = __traceout &amp; 0x4;
             </block>
             <block>
+              Sequence("CS_CATU_0_Capture");
               Sequence("CS_ETR_0_Capture_CircularBuffer");
             </block>
           </sequence>
@@ -418,6 +410,7 @@
             </block>
             <block>
               Sequence("CS_ETR_0_Flush");
+              Sequence("CS_CATU_0_Flush");
             </block>
             <!-- Actual component flush calls only. Do not read a trace buffer here. -->
           </sequence>
@@ -429,6 +422,16 @@
             </block>
             <block>
               Sequence("CS_ETR_0_Read_CircularBuffer");
+            </block>
+          </sequence>
+          <sequence name="DoTraceStop_Buffer">
+            <block>
+              __var swoTrace = __traceout &amp; 0x1;
+              __var syncTrace = __traceout &amp; 0x2;
+              __var bufferTrace = __traceout &amp; 0x4;
+            </block>
+            <block>
+              Sequence("CS_CATU_0_Stop");
             </block>
           </sequence>
           <sequence name="E8_ValidateTraceConfiguration">
@@ -745,7 +748,7 @@
               __apid = CATU_0_AP; // Set AP
 
               // Keep initial values and re-enable CATU before next capture.
-              // Clears any remaining error bits.
+              // In Translate mode, error bits clear only on a disabled-to-enabled transition.
               WriteAccessAP(CATU_0_ADDRESS + 0x000, 0x00000001);
 
               status = ReadAccessAP(CATU_0_ADDRESS + 0x100);
@@ -760,7 +763,7 @@
               Message(0, "End CS_CATU_0_Capture @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
             </block>
           </sequence>
-          <sequence name="CS_CATU_0_Flush" info="Flush any outstanding memory transactions">
+          <sequence name="CS_CATU_0_Flush" info="Drain outstanding memory transactions and re-enable CATU">
             <block>
               // Helper variables
               __var savedAP = __apid;
@@ -769,7 +772,8 @@
               Message(0, "Begin CS_CATU_0_Flush @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
               __apid = CATU_0_AP; // Set AP
 
-              // Disable CATU before configuration
+              // ETR must have completed its flush before CATU is disabled.
+              // Disable CATU to drain outstanding memory transactions.
               WriteAccessAP(CATU_0_ADDRESS + 0x000, 0x00000000);
 
               status = ReadAccessAP(CATU_0_ADDRESS + 0x100);
@@ -780,8 +784,41 @@
               </block>
             </control>
             <block>
+              // Keep the memory path available for ETR.RRD readback and the next capture.
+              WriteAccessAP(CATU_0_ADDRESS + 0x000, 0x00000001);
+              status = ReadAccessAP(CATU_0_ADDRESS + 0x100);
+            </block>
+            <control while="(status &amp; 0x0100) != 0" info="Wait for READY cleared" timeout="100">
+              <block>
+                status = ReadAccessAP(CATU_0_ADDRESS + 0x100);
+              </block>
+            </control>
+            <block>
               __apid = savedAP;
               Message(0, "End CS_CATU_0_Flush @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
+            </block>
+          </sequence>
+          <sequence name="CS_CATU_0_Stop" info="Drain outstanding memory transactions and leave CATU disabled">
+            <block>
+              // Helper variables
+              __var savedAP = __apid;
+              __var status = 0x00000000;
+
+              Message(0, "Begin CS_CATU_0_Stop @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
+              __apid = CATU_0_AP; // Set AP
+
+              // ETR must have completed its flush and any requested readback before CATU is disabled.
+              WriteAccessAP(CATU_0_ADDRESS + 0x000, 0x00000000);
+              status = ReadAccessAP(CATU_0_ADDRESS + 0x100);
+            </block>
+            <control while="(status &amp; 0x0100) == 0" info="Wait for READY" timeout="100">
+              <block>
+                status = ReadAccessAP(CATU_0_ADDRESS + 0x100);
+              </block>
+            </control>
+            <block>
+              __apid = savedAP;
+              Message(0, "End CS_CATU_0_Stop @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
             </block>
           </sequence>
         </sequences>
@@ -1228,12 +1265,6 @@
                 Sequence("E7_ValidateTraceConfiguration");
               </block>
             </control>
-            <control if="bufferTrace">
-              <block>
-                // Configure the ETR memory path before enabling the trace sink.
-                Sequence("CS_CATU_0_Configure");
-              </block>
-            </control>
             <!-- CMSIS-PACK-TRACE: ADD-DEVICE-SPECIFIC-HERE END -->
             <control if="bufferTrace">
               <block>
@@ -1252,12 +1283,6 @@
             </block>
             <!-- CMSIS-PACK-TRACE: ADD-DEVICE-SPECIFIC-HERE BEGIN -->
             <!-- Add verified device-specific capture work here, including migrated legacy setup when applicable. -->
-            <control if="bufferTrace">
-              <block>
-                // Re-enable the ETR memory path before the sink starts the next capture.
-                Sequence("CS_CATU_0_Capture");
-              </block>
-            </control>
             <!-- CMSIS-PACK-TRACE: ADD-DEVICE-SPECIFIC-HERE END -->
             <control if="bufferTrace">
               <block>
@@ -1302,14 +1327,13 @@
               __var syncTrace = __traceout &amp; 0x2;
               __var bufferTrace = __traceout &amp; 0x4;
             </block>
-            <!-- CMSIS-PACK-TRACE: ADD-DEVICE-SPECIFIC-HERE BEGIN -->
-            <!-- Add verified device-specific shutdown work here, including migrated legacy setup when applicable. -->
             <control if="bufferTrace">
               <block>
-                // The debugger has already flushed and read ETR; now quiesce its memory path.
-                Sequence("CS_CATU_0_Flush");
+                Sequence("DoTraceStop_Buffer");
               </block>
             </control>
+            <!-- CMSIS-PACK-TRACE: ADD-DEVICE-SPECIFIC-HERE BEGIN -->
+            <!-- Add verified device-specific shutdown work here, including migrated legacy setup when applicable. -->
             <!-- CMSIS-PACK-TRACE: ADD-DEVICE-SPECIFIC-HERE END -->
           </sequence>
           <sequence name="DoTraceStart_Buffer">
@@ -1321,6 +1345,7 @@
             <block>
               Sequence("CS_FUNNEL_0_Configure");
               Sequence("CS_REPLICATOR_0_Configure");
+              Sequence("CS_CATU_0_Configure");
               Sequence("CS_ETR_0_Configure_CircularBuffer");
             </block>
           </sequence>
@@ -1331,6 +1356,7 @@
               __var bufferTrace = __traceout &amp; 0x4;
             </block>
             <block>
+              Sequence("CS_CATU_0_Capture");
               Sequence("CS_ETR_0_Capture_CircularBuffer");
             </block>
           </sequence>
@@ -1342,6 +1368,7 @@
             </block>
             <block>
               Sequence("CS_ETR_0_Flush");
+              Sequence("CS_CATU_0_Flush");
             </block>
             <!-- Actual component flush calls only. Do not read a trace buffer here. -->
           </sequence>
@@ -1353,6 +1380,16 @@
             </block>
             <block>
               Sequence("CS_ETR_0_Read_CircularBuffer");
+            </block>
+          </sequence>
+          <sequence name="DoTraceStop_Buffer">
+            <block>
+              __var swoTrace = __traceout &amp; 0x1;
+              __var syncTrace = __traceout &amp; 0x2;
+              __var bufferTrace = __traceout &amp; 0x4;
+            </block>
+            <block>
+              Sequence("CS_CATU_0_Stop");
             </block>
           </sequence>
           <sequence name="E7_ValidateTraceConfiguration">
@@ -1669,7 +1706,7 @@
               __apid = CATU_0_AP; // Set AP
 
               // Keep initial values and re-enable CATU before next capture.
-              // Clears any remaining error bits.
+              // In Translate mode, error bits clear only on a disabled-to-enabled transition.
               WriteAccessAP(CATU_0_ADDRESS + 0x000, 0x00000001);
 
               status = ReadAccessAP(CATU_0_ADDRESS + 0x100);
@@ -1684,7 +1721,7 @@
               Message(0, "End CS_CATU_0_Capture @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
             </block>
           </sequence>
-          <sequence name="CS_CATU_0_Flush" info="Flush any outstanding memory transactions">
+          <sequence name="CS_CATU_0_Flush" info="Drain outstanding memory transactions and re-enable CATU">
             <block>
               // Helper variables
               __var savedAP = __apid;
@@ -1693,7 +1730,8 @@
               Message(0, "Begin CS_CATU_0_Flush @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
               __apid = CATU_0_AP; // Set AP
 
-              // Disable CATU before configuration
+              // ETR must have completed its flush before CATU is disabled.
+              // Disable CATU to drain outstanding memory transactions.
               WriteAccessAP(CATU_0_ADDRESS + 0x000, 0x00000000);
 
               status = ReadAccessAP(CATU_0_ADDRESS + 0x100);
@@ -1704,8 +1742,41 @@
               </block>
             </control>
             <block>
+              // Keep the memory path available for ETR.RRD readback and the next capture.
+              WriteAccessAP(CATU_0_ADDRESS + 0x000, 0x00000001);
+              status = ReadAccessAP(CATU_0_ADDRESS + 0x100);
+            </block>
+            <control while="(status &amp; 0x0100) != 0" info="Wait for READY cleared" timeout="100">
+              <block>
+                status = ReadAccessAP(CATU_0_ADDRESS + 0x100);
+              </block>
+            </control>
+            <block>
               __apid = savedAP;
               Message(0, "End CS_CATU_0_Flush @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
+            </block>
+          </sequence>
+          <sequence name="CS_CATU_0_Stop" info="Drain outstanding memory transactions and leave CATU disabled">
+            <block>
+              // Helper variables
+              __var savedAP = __apid;
+              __var status = 0x00000000;
+
+              Message(0, "Begin CS_CATU_0_Stop @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
+              __apid = CATU_0_AP; // Set AP
+
+              // ETR must have completed its flush and any requested readback before CATU is disabled.
+              WriteAccessAP(CATU_0_ADDRESS + 0x000, 0x00000000);
+              status = ReadAccessAP(CATU_0_ADDRESS + 0x100);
+            </block>
+            <control while="(status &amp; 0x0100) == 0" info="Wait for READY" timeout="100">
+              <block>
+                status = ReadAccessAP(CATU_0_ADDRESS + 0x100);
+              </block>
+            </control>
+            <block>
+              __apid = savedAP;
+              Message(0, "End CS_CATU_0_Stop @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
             </block>
           </sequence>
         </sequences>
