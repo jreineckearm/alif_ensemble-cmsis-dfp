@@ -536,6 +536,7 @@
               WriteAccessAP(ETR_0_ADDRESS + 0xED0, ETR_0_AXI_CTL1);           // Init AXICTL1
               WriteAccessAP(ETR_0_ADDRESS + 0x03C, ETR_0_BUFFER_ADDRESS_HI);  // Init RWPHI
               WriteAccessAP(ETR_0_ADDRESS + 0x038, ETR_0_BUFFER_ADDRESS_HI);  // Init RRPHI
+              WriteAccessAP(ETR_0_ADDRESS + 0x00C, 0x00000020);               // STS: Clear sticky MemErr (write 1) and Full (write 0)
               WriteAccessAP(ETR_0_ADDRESS + 0x020, 0x00000001);                                // Enable ETR
             </block>
             <block>
@@ -568,6 +569,7 @@
               WriteAccessAP(ETR_0_ADDRESS + 0xED0, ETR_0_AXI_CTL1);           // Init AXICTL1
               WriteAccessAP(ETR_0_ADDRESS + 0x03C, ETR_0_BUFFER_ADDRESS_HI);  // Init RWPHI
               WriteAccessAP(ETR_0_ADDRESS + 0x038, ETR_0_BUFFER_ADDRESS_HI);  // Init RRPHI
+              WriteAccessAP(ETR_0_ADDRESS + 0x00C, 0x00000020);               // STS: Clear sticky MemErr (write 1) and Full (write 0)
               WriteAccessAP(ETR_0_ADDRESS + 0x020, 0x00000001);                                // Enable ETR
               __apid = savedAP;
 
@@ -618,6 +620,11 @@
             <control while="(etrStatus &amp; 0x4) == 0" info="Wait for TMCReady" timeout="100">
               <block>
                 etrStatus = ReadAccessAP(ETR_0_ADDRESS + 0x00C);
+              </block>
+            </control>
+            <control if="(etrStatus &amp; 0x20) != 0">
+              <block>
+                Message(1, "Warning: ETR memory error detected (STS.MemErr = 1)");
               </block>
             </control>
             <block>
@@ -1453,6 +1460,7 @@
               WriteAccessAP(ETR_0_ADDRESS + 0xED0, ETR_0_AXI_CTL1);           // Init AXICTL1
               WriteAccessAP(ETR_0_ADDRESS + 0x03C, ETR_0_BUFFER_ADDRESS_HI);  // Init RWPHI
               WriteAccessAP(ETR_0_ADDRESS + 0x038, ETR_0_BUFFER_ADDRESS_HI);  // Init RRPHI
+              WriteAccessAP(ETR_0_ADDRESS + 0x00C, 0x00000020);               // STS: Clear sticky MemErr (write 1) and Full (write 0)
               WriteAccessAP(ETR_0_ADDRESS + 0x020, 0x00000001);                                // Enable ETR
             </block>
             <block>
@@ -1485,6 +1493,7 @@
               WriteAccessAP(ETR_0_ADDRESS + 0xED0, ETR_0_AXI_CTL1);           // Init AXICTL1
               WriteAccessAP(ETR_0_ADDRESS + 0x03C, ETR_0_BUFFER_ADDRESS_HI);  // Init RWPHI
               WriteAccessAP(ETR_0_ADDRESS + 0x038, ETR_0_BUFFER_ADDRESS_HI);  // Init RRPHI
+              WriteAccessAP(ETR_0_ADDRESS + 0x00C, 0x00000020);               // STS: Clear sticky MemErr (write 1) and Full (write 0)
               WriteAccessAP(ETR_0_ADDRESS + 0x020, 0x00000001);                                // Enable ETR
               __apid = savedAP;
 
@@ -1535,6 +1544,11 @@
             <control while="(etrStatus &amp; 0x4) == 0" info="Wait for TMCReady" timeout="100">
               <block>
                 etrStatus = ReadAccessAP(ETR_0_ADDRESS + 0x00C);
+              </block>
+            </control>
+            <control if="(etrStatus &amp; 0x20) != 0">
+              <block>
+                Message(1, "Warning: ETR memory error detected (STS.MemErr = 1)");
               </block>
             </control>
             <block>
