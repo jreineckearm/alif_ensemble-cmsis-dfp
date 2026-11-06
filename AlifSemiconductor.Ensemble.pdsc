@@ -8,6 +8,9 @@
   <license>License.txt</license>
 
   <releases>
+    <release version="2.3.0-traceproto4">
+       - removed diagnostic Message(0, ..) calls from trace sequences
+    </release>
     <release version="2.3.0-traceproto3">
        - ETR + CATU ordering and sticky bits
     </release>
@@ -196,7 +199,6 @@
     <keyword>Alif Semiconductor</keyword>
     <keyword>Ensemble</keyword>
   </keywords>
-
 
   <!-- devices section : Describes Alif Semiconductor Fusion Processor SOC -->
   <devices>
@@ -462,8 +464,6 @@
               __var funnelMask = 0x00000000;
               __var value      = 0x00000000;
               __var applyFunnelMask = 1;     // Always apply by default, adjust if for example funnel inputs need to be turned off for SWO trace
-
-              Message(0, "Begin CS_FUNNEL_0_Configure @0x%08X, AP 0x%08X", FUNNEL_0_ADDRESS, FUNNEL_0_AP);
             </block>
             <control if="applyFunnelMask">
               <block>
@@ -481,7 +481,6 @@
               WriteAccessAP(FUNNEL_0_ADDRESS + 0x000, value);  // Configure CoreSight Trace Funnel to enable selected trace sources
 
               __apid = savedAP;
-              Message(0, "End CS_FUNNEL_0_Configure @0x%08X, AP 0x%08X", FUNNEL_0_ADDRESS, FUNNEL_0_AP);
             </block>
           </sequence>
           <sequence name="CS_REPLICATOR_0_Configure">
@@ -489,15 +488,12 @@
               // Helper variables
               __var savedAP    = __apid;
 
-              Message(0, "Begin CS_REPLICATOR_0_Configure @0x%08X, AP 0x%08X", REPLICATOR_0_ADDRESS, REPLICATOR_0_AP);
-
               __apid = REPLICATOR_0_AP; // Set AP
 
               WriteAccessAP(REPLICATOR_0_ADDRESS + 0x000, REPLICATOR_0_ID_FILTER0);
               WriteAccessAP(REPLICATOR_0_ADDRESS + 0x004, REPLICATOR_0_ID_FILTER1);
 
               __apid = savedAP;
-              Message(0, "End CS_REPLICATOR_0_Configure @0x%08X, AP 0x%08X", REPLICATOR_0_ADDRESS, REPLICATOR_0_AP);
             </block>
           </sequence>
           <sequence name="CS_ETR_0_Configure_CircularBuffer">
@@ -507,7 +503,6 @@
               __var ffcrValue = 0x00000000;
               __var etrStatus = 0x00000000;
 
-              Message(0, "Begin CS_ETR_0_Configure_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
               __apid = ETR_0_AP;                                                           // Set AP
 
               // Configure ETR for circular-buffer trace capture.
@@ -544,7 +539,6 @@
             </block>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_ETR_0_Configure_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
             </block>
           </sequence>
           <sequence name="CS_ETR_0_Capture_CircularBuffer">
@@ -552,8 +546,6 @@
               // Helper variables
               __var ffcrValue = 0x00000000;
               __var savedAP = __apid;
-
-              Message(0, "Begin CS_ETR_0_Capture_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
 
               __apid = ETR_0_AP;                                              // Set AP
               ffcrValue  = ReadAccessAP(ETR_0_ADDRESS + 0x304);
@@ -575,8 +567,6 @@
               WriteAccessAP(ETR_0_ADDRESS + 0x00C, 0x00000020);               // STS: Clear sticky MemErr (write 1) and Full (write 0)
               WriteAccessAP(ETR_0_ADDRESS + 0x020, 0x00000001);                                // Enable ETR
               __apid = savedAP;
-
-              Message(0, "End CS_ETR_0_Capture_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
             </block>
           </sequence>
           <sequence name="CS_ETR_0_Flush">
@@ -585,8 +575,6 @@
               __var savedAP     = __apid;
               __var ffcrValue   = 0x00000000;
               __var etrStatus   = 0x00000000;
-
-              Message(0, "Begin CS_ETR_0_Flush @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
 
               __apid = ETR_0_AP;  // Set AP
             </block>
@@ -632,7 +620,6 @@
             </control>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_ETR_0_Flush @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
             </block>
           </sequence>
           <sequence name="CS_ETR_0_Read_CircularBuffer">
@@ -646,7 +633,6 @@
               __var bytesToRead   = 0x00000000;
               __var bytesStreamed = 0x00000000;
 
-              Message(0, "Begin CS_ETR_0_Read_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
               __apid = ETR_0_AP; // Set AP
 
               // ETR RSZ is expressed in 32-bit words. RRP and RWP identify the valid capture range.
@@ -661,7 +647,6 @@
                 // STS.Full indicates that the circular buffer contains a complete capture.
                 bytesToRead = bufferSize;
                 // RWP identifies the oldest retained trace after the buffer wraps.
-                Message(0, "Wraparound, adjusting read pointer(0x%08X), reading %u ETR trace bytes", readPointer, bytesToRead);
                 WriteAccessAP(ETR_0_ADDRESS + 0x014, ReadAccessAP(ETR_0_ADDRESS + 0x018)); // Rebase RRP for chronological output
                 WriteAccessAP(ETR_0_ADDRESS + 0x038, ReadAccessAP(ETR_0_ADDRESS + 0x03C)); // Rebase RRPHI for chronological output
                 </block>
@@ -679,7 +664,6 @@
                 // named buffers specified in PDSC. Decide which xxx_Read_Buffer sequence to call based
                 // on TraceBufferSelected().
                 bytesStreamed = BufferStreamOut(0, 0, bytesToRead, "", 1, 0);
-                Message(0, "Streamed %u of %u ETR trace bytes", bytesStreamed, bytesToRead);
                 </block>
               </control>
               <control if="bytesToRead == 0">
@@ -690,7 +674,6 @@
             </control>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_ETR_0_Read_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
             </block>
           </sequence>
           <sequence name="CS_CATU_0_Configure" info="Scatterlist expected to be programmed separately, too complex">
@@ -698,8 +681,6 @@
               // Helper variables
               __var savedAP = __apid;
               __var status = 0x00000000;
-
-              Message(0, "Begin CS_CATU_0_Configure @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
 
               __apid = CATU_0_AP;                                                              // Set AP
 
@@ -734,7 +715,6 @@
             </control>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_CATU_0_Configure @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
             </block>
           </sequence>
           <sequence name="CS_CATU_0_Capture" info="Restart address translation unit">
@@ -742,8 +722,6 @@
               // Helper variables
               __var savedAP = __apid;
               __var status = 0x00000000;
-
-              Message(0, "Begin CS_CATU_0_Capture @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
 
               __apid = CATU_0_AP; // Set AP
 
@@ -760,7 +738,6 @@
             </control>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_CATU_0_Capture @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
             </block>
           </sequence>
           <sequence name="CS_CATU_0_Flush" info="Drain outstanding memory transactions and re-enable CATU">
@@ -769,7 +746,6 @@
               __var savedAP = __apid;
               __var status = 0x00000000;
 
-              Message(0, "Begin CS_CATU_0_Flush @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
               __apid = CATU_0_AP; // Set AP
 
               // ETR must have completed its flush before CATU is disabled.
@@ -795,7 +771,6 @@
             </control>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_CATU_0_Flush @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
             </block>
           </sequence>
           <sequence name="CS_CATU_0_Stop" info="Drain outstanding memory transactions and leave CATU disabled">
@@ -804,7 +779,6 @@
               __var savedAP = __apid;
               __var status = 0x00000000;
 
-              Message(0, "Begin CS_CATU_0_Stop @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
               __apid = CATU_0_AP; // Set AP
 
               // ETR must have completed its flush and any requested readback before CATU is disabled.
@@ -818,7 +792,6 @@
             </control>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_CATU_0_Stop @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
             </block>
           </sequence>
         </sequences>
@@ -1420,8 +1393,6 @@
               __var funnelMask = 0x00000000;
               __var value      = 0x00000000;
               __var applyFunnelMask = 1;     // Always apply by default, adjust if for example funnel inputs need to be turned off for SWO trace
-
-              Message(0, "Begin CS_FUNNEL_0_Configure @0x%08X, AP 0x%08X", FUNNEL_0_ADDRESS, FUNNEL_0_AP);
             </block>
             <control if="applyFunnelMask">
               <block>
@@ -1439,7 +1410,6 @@
               WriteAccessAP(FUNNEL_0_ADDRESS + 0x000, value);  // Configure CoreSight Trace Funnel to enable selected trace sources
 
               __apid = savedAP;
-              Message(0, "End CS_FUNNEL_0_Configure @0x%08X, AP 0x%08X", FUNNEL_0_ADDRESS, FUNNEL_0_AP);
             </block>
           </sequence>
           <sequence name="CS_REPLICATOR_0_Configure">
@@ -1447,15 +1417,12 @@
               // Helper variables
               __var savedAP    = __apid;
 
-              Message(0, "Begin CS_REPLICATOR_0_Configure @0x%08X, AP 0x%08X", REPLICATOR_0_ADDRESS, REPLICATOR_0_AP);
-
               __apid = REPLICATOR_0_AP; // Set AP
 
               WriteAccessAP(REPLICATOR_0_ADDRESS + 0x000, REPLICATOR_0_ID_FILTER0);
               WriteAccessAP(REPLICATOR_0_ADDRESS + 0x004, REPLICATOR_0_ID_FILTER1);
 
               __apid = savedAP;
-              Message(0, "End CS_REPLICATOR_0_Configure @0x%08X, AP 0x%08X", REPLICATOR_0_ADDRESS, REPLICATOR_0_AP);
             </block>
           </sequence>
           <sequence name="CS_ETR_0_Configure_CircularBuffer">
@@ -1465,7 +1432,6 @@
               __var ffcrValue = 0x00000000;
               __var etrStatus = 0x00000000;
 
-              Message(0, "Begin CS_ETR_0_Configure_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
               __apid = ETR_0_AP;                                                           // Set AP
 
               // Configure ETR for circular-buffer trace capture.
@@ -1502,7 +1468,6 @@
             </block>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_ETR_0_Configure_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
             </block>
           </sequence>
           <sequence name="CS_ETR_0_Capture_CircularBuffer">
@@ -1510,8 +1475,6 @@
               // Helper variables
               __var ffcrValue = 0x00000000;
               __var savedAP = __apid;
-
-              Message(0, "Begin CS_ETR_0_Capture_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
 
               __apid = ETR_0_AP;                                              // Set AP
               ffcrValue  = ReadAccessAP(ETR_0_ADDRESS + 0x304);
@@ -1533,8 +1496,6 @@
               WriteAccessAP(ETR_0_ADDRESS + 0x00C, 0x00000020);               // STS: Clear sticky MemErr (write 1) and Full (write 0)
               WriteAccessAP(ETR_0_ADDRESS + 0x020, 0x00000001);                                // Enable ETR
               __apid = savedAP;
-
-              Message(0, "End CS_ETR_0_Capture_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
             </block>
           </sequence>
           <sequence name="CS_ETR_0_Flush">
@@ -1543,8 +1504,6 @@
               __var savedAP     = __apid;
               __var ffcrValue   = 0x00000000;
               __var etrStatus   = 0x00000000;
-
-              Message(0, "Begin CS_ETR_0_Flush @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
 
               __apid = ETR_0_AP;  // Set AP
             </block>
@@ -1590,7 +1549,6 @@
             </control>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_ETR_0_Flush @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
             </block>
           </sequence>
           <sequence name="CS_ETR_0_Read_CircularBuffer">
@@ -1604,7 +1562,6 @@
               __var bytesToRead   = 0x00000000;
               __var bytesStreamed = 0x00000000;
 
-              Message(0, "Begin CS_ETR_0_Read_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
               __apid = ETR_0_AP; // Set AP
 
               // ETR RSZ is expressed in 32-bit words. RRP and RWP identify the valid capture range.
@@ -1619,7 +1576,6 @@
                   // STS.Full indicates that the circular buffer contains a complete capture.
                   bytesToRead = bufferSize;
                   // RWP identifies the oldest retained trace after the buffer wraps.
-                  Message(0, "Wraparound, adjusting read pointer(0x%08X), reading %u ETR trace bytes", readPointer, bytesToRead);
                   WriteAccessAP(ETR_0_ADDRESS + 0x014, ReadAccessAP(ETR_0_ADDRESS + 0x018)); // Rebase RRP for chronological output
                   WriteAccessAP(ETR_0_ADDRESS + 0x038, ReadAccessAP(ETR_0_ADDRESS + 0x03C)); // Rebase RRPHI for chronological output
                 </block>
@@ -1637,7 +1593,6 @@
                   // named buffers specified in PDSC. Decide which xxx_Read_Buffer sequence to call based
                   // on TraceBufferSelected().
                   bytesStreamed = BufferStreamOut(0, 0, bytesToRead, "", 1, 0);
-                  Message(0, "Streamed %u of %u ETR trace bytes", bytesStreamed, bytesToRead);
                 </block>
               </control>
               <control if="bytesToRead == 0">
@@ -1648,7 +1603,6 @@
             </control>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_ETR_0_Read_CircularBuffer @0x%08X, AP 0x%08X", ETR_0_ADDRESS, ETR_0_AP);
             </block>
           </sequence>
           <sequence name="CS_CATU_0_Configure" info="Scatterlist expected to be programmed separately, too complex">
@@ -1656,8 +1610,6 @@
               // Helper variables
               __var savedAP = __apid;
               __var status = 0x00000000;
-
-              Message(0, "Begin CS_CATU_0_Configure @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
 
               __apid = CATU_0_AP;                                                              // Set AP
 
@@ -1692,7 +1644,6 @@
             </control>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_CATU_0_Configure @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
             </block>
           </sequence>
           <sequence name="CS_CATU_0_Capture" info="Restart address translation unit">
@@ -1700,8 +1651,6 @@
               // Helper variables
               __var savedAP = __apid;
               __var status = 0x00000000;
-
-              Message(0, "Begin CS_CATU_0_Capture @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
 
               __apid = CATU_0_AP; // Set AP
 
@@ -1718,7 +1667,6 @@
             </control>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_CATU_0_Capture @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
             </block>
           </sequence>
           <sequence name="CS_CATU_0_Flush" info="Drain outstanding memory transactions and re-enable CATU">
@@ -1727,7 +1675,6 @@
               __var savedAP = __apid;
               __var status = 0x00000000;
 
-              Message(0, "Begin CS_CATU_0_Flush @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
               __apid = CATU_0_AP; // Set AP
 
               // ETR must have completed its flush before CATU is disabled.
@@ -1753,7 +1700,6 @@
             </control>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_CATU_0_Flush @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
             </block>
           </sequence>
           <sequence name="CS_CATU_0_Stop" info="Drain outstanding memory transactions and leave CATU disabled">
@@ -1762,7 +1708,6 @@
               __var savedAP = __apid;
               __var status = 0x00000000;
 
-              Message(0, "Begin CS_CATU_0_Stop @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
               __apid = CATU_0_AP; // Set AP
 
               // ETR must have completed its flush and any requested readback before CATU is disabled.
@@ -1776,7 +1721,6 @@
             </control>
             <block>
               __apid = savedAP;
-              Message(0, "End CS_CATU_0_Stop @0x%08X, AP 0x%08X", CATU_0_ADDRESS, CATU_0_AP);
             </block>
           </sequence>
         </sequences>
@@ -2500,7 +2444,6 @@
           <!-- On-chip NVM Region -->
           <memory name="MRAM" start="0x80000000" size="0x0018C000" access="rx" default="1"/>
 
-
           <!-- On-Chip RAM Regions 2MB -->
           <memory name="SRAM4" start="0x58000000" size="0x00080000" access="rwx" default="1"/>
           <memory name="SRAM5" start="0x58800000" size="0x00180000" access="rwx" default="1"/>
@@ -2534,7 +2477,6 @@
         <component Cclass="SOC Peripherals TestApp" Cgroup="TestApp" Csub="LED Blinky" Cvendor="Alif Semiconductor"/>
       </attributes>
     </example>-->
-
 
     <example name="Blinky_M55_HE" folder="Boards/DevKit-e8/Examples/Blinky_HE" doc="README.md">
       <description>Blinky example running on M55 High Efficiency core</description>
@@ -3047,8 +2989,6 @@
       <require Dname="AE1C1F4051920*" Pname="M55_HE"/>
     </condition>
 
-
-
     <condition id="SoC AE722F80F55D5">
       <description>Alif Semiconductor SoC AE722F80F55D5 device</description>
       <require Dname="AE722F80F55D5*"/>
@@ -3496,8 +3436,6 @@
         <file category="include" name="Device/soc/AE302F80F5582/include/rtss_hp/" condition="SoC AE302F80F5582 M55_HP"/>
         <file category="include" name="Device/soc/AE302F80F5582/include/rtss_he/" condition="SoC AE302F80F5582 M55_HE"/>
 
-
-
         <!-- AE1C1F4051920 specific files -->
         <file category="include" name="Device/soc/AE1C1F4051920/include/" condition="SoC AE1C1F4051920"/>
         <file category="header" name="Device/soc/AE1C1F4051920/config/app_mem_regions.h" version="3.0.0"  attr="config" condition="SoC AE1C1F4051920"/>
@@ -3862,7 +3800,6 @@
       </files>
     </component>
 
-
     <component Cclass="Device" Cgroup="SOC Peripherals" Csub="PINCONF" Cversion="2.2.0" condition="PINCONF Driver">
       <description>PinMUX and PinPAD Config Driver for Alif Semiconductor SOC</description>
       <RTE_Components_h>  <!-- the following content goes into file 'RTE_Components.h' -->
@@ -3944,7 +3881,6 @@
         <file category="header" name="drivers/include/sys_ctrl_rtc.h"/>
       </files>
     </component>
-
 
     <component Cclass="Device" Cgroup="SOC Peripherals" Csub="WDT" Cversion="2.2.0" condition="Ensemble CMSIS_Driver">
       <description>Local Watchdog Driver for M55_HP/HE </description>
@@ -4205,7 +4141,6 @@
       </files>
     </component>
 
-
     <component Cclass="Device" Cgroup="SOC Peripherals" Csub="ADC" Cversion="2.2.0" condition="Analog Components Driver">
       <description>ADC Driver for Alif Semiconductor SOC</description>
       <RTE_Components_h>  <!-- the following content goes into file 'RTE_Components.h' -->
@@ -4427,7 +4362,6 @@
       </files>
     </component>
 
-
     <component Cclass="Device" Cgroup="SOC Peripherals" Csub="MRAM" Cversion="2.2.0" condition="Ensemble CMSIS_Driver">
       <description>MRAM Driver for Alif Semiconductor SOC</description>
       <RTE_Components_h>  <!-- the following content goes into file 'RTE_Components.h' -->
@@ -4645,7 +4579,6 @@
       </files>
     </component>
 
-
     <component Cclass="Services" Cgroup="Secure Enclave" Csub="Initialization Helper" Cvariant="Source" Cversion="1.110.0" condition="SE SERVICES INIT">
       <description>SE runtime Services initialization helper for RTSS cores</description>
       <files>
@@ -4654,7 +4587,6 @@
         <file category="source" name="se_services/port/clock_runtime.c"/>
       </files>
     </component>
-
 
     <component Cclass="BSP" Cgroup="Board Config" Cversion="2.2.0" condition="BSP Board Config">
       <description>Conductor Tool based board configuration for Board Config</description>
@@ -4762,7 +4694,6 @@
     </component>
 
   </components>
-
 
   <csolution>
     <template name="Alif CMSIS" path="Alif_CMSIS/Template/CMSIS" file="MyProject.csolution.yml" condition="Ensemble">
